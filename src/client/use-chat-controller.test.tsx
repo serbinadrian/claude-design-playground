@@ -192,6 +192,7 @@ describe('useChatController', () => {
       options.onEvent({
         type: 'start', requestId: 'retry', model: 'asi1-mini', httpStatus: 200,
       });
+      options.onEvent({ type: 'delta', text: 'Retried answer' });
       options.onEvent({ type: 'complete', finishReason: 'stop' });
     });
     await act(async () => result.current.retry());
@@ -347,5 +348,57 @@ describe('useChatController', () => {
     expect(
       result.current.conversations.find(({ id }) => id === 'thread')?.messages.at(-1)?.status,
     ).toBe('aborted');
+  });
+
+  it('creates a recoverable aborted turn when navigation happens before start', () => {
+    const transport = vi.fn<Transport>(() => new Promise(() => undefined));
+    const { result } = renderHook(() =>
+      useChatController({
+        repository: repository(),
+        transport,
+        idFactory: ids('thread', 'user', 'aborted-assistant', 'next'),
+        now: clock(),
+      }),
+    );
+
+    act(() => result.current.setDraft('Question'));
+    act(() => void result.current.submit());
+    act(() => result.current.newConversation());
+
+    const interrupted = result.current.conversations.find(({ id }) => id === 'thread');
+    expect(interrupted?.messages).toMatchObject([
+      { role: 'user', content: 'Question' },
+      { role: 'assistant', status: 'aborted' },
+    ]);
+    expect(result.current.activeConversation.id).toBe('next');
+  });
+
+  it('turns an empty completed response into a retryable failure', async () => {
+    const transport = vi.fn<Transport>(async (options) => {
+      options.onEvent({
+        type: 'start', requestId: 'request', model: 'asi1-mini', httpStatus: 200,
+      });
+      options.onEvent({ type: 'complete', finishReason: 'stop' });
+    });
+    const { result } = renderHook(() =>
+      useChatController({
+        repository: repository(),
+        transport,
+        idFactory: ids('thread', 'user'),
+        now: clock(),
+      }),
+    );
+
+    act(() => result.current.setDraft('Question'));
+    await act(async () => result.current.submit());
+
+    expect(result.current.activeConversation.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: 'error',
+      metadata: {
+        error: { code: 'empty_response', retryable: true },
+      },
+    });
+    expect(result.current.error).toMatchObject({ code: 'empty_response' });
   });
 });

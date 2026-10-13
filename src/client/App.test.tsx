@@ -170,8 +170,13 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'New request' }));
     await user.click(screen.getByRole('button', { name: 'Open Older thread' }));
+    await user.click(screen.getByRole('button', { name: 'New mobile request' }));
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Mobile conversation history' }),
+      'older',
+    );
     await user.click(screen.getByRole('button', { name: 'Retry response' }));
-    expect(chat.newConversation).toHaveBeenCalledOnce();
+    expect(chat.newConversation).toHaveBeenCalledTimes(2);
     expect(chat.selectConversation).toHaveBeenCalledWith('older');
     expect(chat.retry).toHaveBeenCalledOnce();
 

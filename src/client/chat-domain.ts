@@ -227,6 +227,26 @@ export const appendAssistantFailure = (
   updatedAt: now,
 });
 
+export const appendAbortedAssistant = (
+  conversation: Conversation,
+  id: string,
+  now: number,
+): Conversation => ({
+  ...conversation,
+  messages: [
+    ...conversation.messages,
+    {
+      id,
+      role: 'assistant',
+      content: '',
+      status: 'aborted',
+      createdAt: now,
+      metadata: { completedAt: now },
+    },
+  ],
+  updatedAt: now,
+});
+
 export const prepareRetry = (conversation: Conversation): Conversation => {
   const lastMessage = conversation.messages.at(-1);
   if (

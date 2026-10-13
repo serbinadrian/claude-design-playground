@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  appendAbortedAssistant,
   appendAssistantFailure,
   appendUserTurn,
   applyStreamEvent,
@@ -60,13 +61,17 @@ const fallbackError: ConversationError = {
   message: 'The request could not be completed.',
   retryable: true,
 };
+const emptyResponseError: ConversationError = {
+  code: 'empty_response',
+  message: 'The model returned an empty response. Please retry.',
+  retryable: true,
+};
 
 export const useChatController = (
   options: UseChatControllerOptions = {},
 ): ChatController => {
-  const repository = useMemo(
+  const [repository] = useState(
     () => options.repository ?? createConversationRepository(),
-    [options.repository],
   );
   const [transport] = useState(() => options.transport ?? streamChat);
   const [idFactory] = useState(() => options.idFactory ?? defaultIdFactory);
@@ -150,7 +155,9 @@ export const useChatController = (
       session.pendingDelta = '';
     } else {
       flushDelta(session);
-      session.conversation = markConversationAborted(session.conversation, now());
+      session.conversation = session.conversation.messages.at(-1)?.role === 'user'
+        ? appendAbortedAssistant(session.conversation, idFactory(), now())
+        : markConversationAborted(session.conversation, now());
       replaceConversation(session.conversation);
     }
     session.controller.abort();
@@ -165,7 +172,7 @@ export const useChatController = (
         retryable: true,
       });
     }
-  }, [cancelFrame, flushDelta, now, replaceConversation]);
+  }, [cancelFrame, flushDelta, idFactory, now, replaceConversation]);
 
   const runRequest = useCallback(async (startingConversation: Conversation) => {
     if (sessionRef.current) {
@@ -211,6 +218,15 @@ export const useChatController = (
             return;
           }
           flushDelta(session);
+          if (
+            event.type === 'complete' &&
+            session.conversation.messages.at(-1)?.role === 'assistant' &&
+            !session.conversation.messages.at(-1)?.content.trim()
+          ) {
+            applyToSession(session, { type: 'error', ...emptyResponseError });
+            setError(emptyResponseError);
+            return;
+          }
           applyToSession(session, event);
           if (event.type === 'error') {
             setError({
@@ -347,10 +363,14 @@ export const useChatController = (
       if (session) {
         session.cancelled = true;
         cancelFrame(session);
+        session.conversation = session.conversation.messages.at(-1)?.role === 'user'
+          ? appendAbortedAssistant(session.conversation, idFactory(), now())
+          : markConversationAborted(session.conversation, now());
+        repository.save(session.conversation);
         session.controller.abort();
       }
     };
-  }, [cancelFrame]);
+  }, [cancelFrame, idFactory, now, repository]);
 
   return {
     conversations,

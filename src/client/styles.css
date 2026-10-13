@@ -76,10 +76,11 @@ kbd { font: 500 9px/1.4 var(--mono); color: var(--muted); border: 1px solid var(
 .preset-link span { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .rail-footer { margin-top: auto; border-top: 1px solid var(--line-soft); padding: 13px 7px 2px; font: 9px/1 var(--mono); color: var(--muted); letter-spacing: .08em; }
 .rail-footer span { display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #5d655e; }
-.chat-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto 1fr auto auto auto; background: rgba(11,13,12,.72); }
+.chat-workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto 1fr auto auto auto; background: rgba(11,13,12,.72); }
 .chat-workspace__heading { display: flex; justify-content: space-between; align-items: end; padding: 22px 30px 17px; border-bottom: 1px solid var(--line-soft); }
 .chat-workspace__heading h1 { margin: 6px 0 0; max-width: 620px; font-size: 18px; font-weight: 500; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thread-count { color: var(--muted); font: 9px/1 var(--mono); }
+.mobile-actions { display: none; }
 .chat-scroll { overflow-y: auto; min-height: 0; scrollbar-color: #303731 transparent; }
 .empty-state { height: 100%; min-height: 320px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 36px 24px; }
 .empty-state__glyph { color: var(--lime); font: 500 38px/1 var(--mono); margin-bottom: 24px; text-shadow: 0 0 32px rgba(183,243,74,.2); }
@@ -149,6 +150,11 @@ kbd { font: 500 9px/1.4 var(--mono); color: var(--muted); border: 1px solid var(
   .chat-workspace { height: calc(100vh - 52px); }
   .chat-workspace__heading { padding: 17px 16px 13px; }
   .chat-workspace__heading h1 { max-width: 230px; font-size: 15px; }
+  .mobile-actions { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+  .mobile-actions button, .mobile-actions select { height: 34px; border: 1px solid var(--line); background: var(--panel-raised); color: var(--muted-bright); font: 10px/1 var(--mono); }
+  .mobile-actions button { padding: 0 13px; color: var(--lime); cursor: pointer; }
+  .mobile-actions label { min-width: 0; flex: 1; }
+  .mobile-actions select { width: 100%; padding: 0 9px; }
   .message-list { padding: 8px 16px 28px; }
   .message { grid-template-columns: 21px minmax(0,1fr); gap: 7px; }
   .composer { margin: 0 12px; }

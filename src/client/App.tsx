@@ -54,6 +54,11 @@ export const App = ({
       : apiStatus === 'loading'
         ? 'Checking the local API…'
         : undefined;
+  const latestStatus = chat.activeConversation.messages.at(-1)?.status;
+  const followUpBlocked = latestStatus === 'error' || latestStatus === 'aborted';
+  const disabledReason = unavailableReason ?? (followUpBlocked
+    ? 'Retry the failed response or start a new request before adding another turn.'
+    : undefined);
 
   const applyPreset = (command: string) => {
     const expansion = expandCommandPreset(command);
@@ -84,6 +89,29 @@ export const App = ({
               {chat.activeConversation.messages.length} MSG
             </span>
           </div>
+          <nav className="mobile-actions" aria-label="Mobile conversation controls">
+            <button
+              aria-label="New mobile request"
+              onClick={chat.newConversation}
+              type="button"
+            >
+              ＋ New
+            </button>
+            <label>
+              <span className="sr-only">Mobile conversation history</span>
+              <select
+                aria-label="Mobile conversation history"
+                onChange={(event) => chat.selectConversation(event.target.value)}
+                value={chat.activeConversation.id}
+              >
+                {chat.conversations.map((conversation) => (
+                  <option key={conversation.id} value={conversation.id}>
+                    {conversation.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </nav>
           <div className="chat-scroll">
             <MessageList
               conversation={chat.activeConversation}
@@ -103,8 +131,8 @@ export const App = ({
             </div>
           ) : null}
           <Composer
-            disabled={apiStatus !== 'ready'}
-            disabledReason={unavailableReason}
+            disabled={apiStatus !== 'ready' || followUpBlocked}
+            disabledReason={disabledReason}
             draft={chat.draft}
             onDraftChange={chat.setDraft}
             onStop={chat.stop}

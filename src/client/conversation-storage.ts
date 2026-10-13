@@ -57,14 +57,30 @@ const isConversation = (value: unknown): value is Conversation => {
 
 const normalize = (conversations: Conversation[]): Conversation[] =>
   [...conversations]
-    .map((conversation) => ({
-      ...conversation,
-      messages: conversation.messages.map((message) =>
+    .map((conversation) => {
+      const messages = conversation.messages.map((message) =>
         message.role === 'assistant' && message.status === 'streaming'
           ? { ...message, status: 'aborted' as const }
           : message,
-      ),
-    }))
+      );
+      const last = messages.at(-1);
+      return {
+      ...conversation,
+        messages: last?.role === 'user'
+          ? [
+              ...messages,
+              {
+                id: `recovered-${last.id}`,
+                role: 'assistant' as const,
+                content: '',
+                status: 'aborted' as const,
+                createdAt: conversation.updatedAt,
+                metadata: { completedAt: conversation.updatedAt },
+              },
+            ]
+          : messages,
+      };
+    })
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, MAX_CONVERSATIONS);
 

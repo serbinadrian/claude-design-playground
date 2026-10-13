@@ -75,6 +75,28 @@ describe('createConversationRepository', () => {
     });
   });
 
+  it('recovers a trailing submitted user turn with an aborted assistant', () => {
+    const interrupted: Conversation = {
+      ...conversation('interrupted-before-start', 2),
+      messages: [
+        { id: 'user', role: 'user', content: 'Question', status: 'complete', createdAt: 2 },
+      ],
+    };
+    const storage = memoryStorage({
+      'quickllm:conversations:v1': JSON.stringify({
+        version: 1,
+        conversations: [interrupted],
+      }),
+    });
+
+    const [recovered] = createConversationRepository(storage).list();
+
+    expect(recovered.messages).toMatchObject([
+      { role: 'user', content: 'Question' },
+      { role: 'assistant', status: 'aborted' },
+    ]);
+  });
+
   it('continues in memory when storage reads throw', () => {
     const storage = throwingStorage('read');
 
