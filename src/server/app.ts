@@ -142,9 +142,11 @@ const streamChat = async (
 export const createApp = ({
   config,
   provider,
+  clientDirectory = resolve(process.cwd(), 'dist/client'),
 }: {
   config: ServerConfig;
   provider?: ChatProvider;
+  clientDirectory?: string;
 }): Express => {
   const app = express();
   const chatProvider =
@@ -179,12 +181,15 @@ export const createApp = ({
     await streamChat(request, response, config, chatProvider);
   });
 
-  const clientDirectory = resolve(process.cwd(), 'dist/client');
   const clientEntry = resolve(clientDirectory, 'index.html');
   if (existsSync(clientEntry)) {
     app.use(express.static(clientDirectory));
-    app.get(/^(?!\/api(?:\/|$)).*/, (_request, response) => {
-      response.sendFile(clientEntry);
+    app.use((request, response, next) => {
+      if (request.method !== 'GET' || request.path.startsWith('/api')) {
+        next();
+        return;
+      }
+      response.sendFile('index.html', { root: clientDirectory });
     });
   }
 

@@ -1,4 +1,5 @@
 import { createServer, request as httpRequest } from 'node:http';
+import { resolve } from 'node:path';
 
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
@@ -161,6 +162,24 @@ describe('createApp', () => {
           message: 'Request body exceeds the 48 KB limit.',
         },
       });
+  });
+
+  it('serves the client shell for direct non-API navigation only', async () => {
+    const app = createApp({
+      config: readyConfig,
+      provider: providerFrom(async function* () {
+        yield { type: 'complete', finishReason: 'stop' };
+      }),
+      clientDirectory: resolve(process.cwd(), 'src/server/test-fixtures/client'),
+    });
+
+    const navigation = await request(app).get('/design/workflow');
+    expect(navigation.status).toBe(200);
+    expect(navigation.text).toContain('static-fixture-root');
+
+    const missingApi = await request(app).get('/api/missing');
+    expect(missingApi.status).toBe(404);
+    expect(missingApi.text).not.toContain('static-fixture-root');
   });
 
   it('aborts provider work when the client disconnects', async () => {
