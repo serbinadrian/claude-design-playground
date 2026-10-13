@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Local agent workspaces and design-session previews
+.worktrees/
+.superpowers/
