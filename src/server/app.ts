@@ -59,6 +59,7 @@ const streamChat = async (
   response: Response,
   config: ServerConfig,
   provider: ChatProvider,
+  logger: Pick<Console, 'error'>,
 ) => {
   const validation = validateChatRequest(request.body);
   if (!validation.ok) {
@@ -90,9 +91,10 @@ const streamChat = async (
   request.once('aborted', abortIfOpen);
   response.once('close', abortIfOpen);
 
+  const requestId = randomUUID();
   writeSseEvent(response, {
     type: 'start',
-    requestId: randomUUID(),
+    requestId,
     model: config.model,
     httpStatus: 200,
   });
@@ -128,6 +130,11 @@ const streamChat = async (
             message: 'The server could not complete the model request.',
             retryable: true,
           };
+    logger.error('Chat provider request failed.', {
+      requestId,
+      code: streamError.code,
+      retryable: streamError.retryable,
+    });
     writeSseEvent(response, streamError);
   } finally {
     request.removeListener('aborted', abortIfOpen);
@@ -143,10 +150,12 @@ export const createApp = ({
   config,
   provider,
   clientDirectory = resolve(process.cwd(), 'dist/client'),
+  logger = console,
 }: {
   config: ServerConfig;
   provider?: ChatProvider;
   clientDirectory?: string;
+  logger?: Pick<Console, 'error'>;
 }): Express => {
   const app = express();
   const chatProvider =
@@ -178,7 +187,7 @@ export const createApp = ({
       return;
     }
 
-    await streamChat(request, response, config, chatProvider);
+    await streamChat(request, response, config, chatProvider, logger);
   });
 
   const clientEntry = resolve(clientDirectory, 'index.html');

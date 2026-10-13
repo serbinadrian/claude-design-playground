@@ -57,6 +57,14 @@ const isConversation = (value: unknown): value is Conversation => {
 
 const normalize = (conversations: Conversation[]): Conversation[] =>
   [...conversations]
+    .map((conversation) => ({
+      ...conversation,
+      messages: conversation.messages.map((message) =>
+        message.role === 'assistant' && message.status === 'streaming'
+          ? { ...message, status: 'aborted' as const }
+          : message,
+      ),
+    }))
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, MAX_CONVERSATIONS);
 

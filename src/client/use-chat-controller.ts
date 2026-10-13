@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  appendAssistantFailure,
   appendUserTurn,
   applyStreamEvent,
   createConversation,
@@ -44,8 +45,16 @@ interface UseChatControllerOptions {
   now?: () => number;
 }
 
-const defaultIdFactory = () => crypto.randomUUID();
+interface RequestSession {
+  controller: AbortController;
+  conversation: Conversation;
+  pendingDelta: string;
+  frame: number | null;
+  cancelled: boolean;
+  removed: boolean;
+}
 
+const defaultIdFactory = () => crypto.randomUUID();
 const fallbackError: ConversationError = {
   code: 'request_failed',
   message: 'The request could not be completed.',
@@ -59,10 +68,9 @@ export const useChatController = (
     () => options.repository ?? createConversationRepository(),
     [options.repository],
   );
-  const transport = options.transport ?? streamChat;
-  const idFactory = options.idFactory ?? defaultIdFactory;
-  const now = options.now ?? Date.now;
-
+  const [transport] = useState(() => options.transport ?? streamChat);
+  const [idFactory] = useState(() => options.idFactory ?? defaultIdFactory);
+  const [now] = useState(() => options.now ?? Date.now);
   const [initialState] = useState(() => {
     const stored = repository.list();
     const initial = stored[0] ?? createConversation(idFactory(), now());
@@ -72,20 +80,15 @@ export const useChatController = (
     };
   });
 
-  const [conversations, setConversations] = useState(
-    initialState.conversations,
-  );
+  const [conversations, setConversations] = useState(initialState.conversations);
   const [activeId, setActiveId] = useState(initialState.activeId);
   const [draft, setDraft] = useState('');
   const [requestState, setRequestState] = useState<RequestState>('idle');
   const [error, setError] = useState<ConversationError | null>(null);
   const conversationsRef = useRef(conversations);
   const activeIdRef = useRef(activeId);
-  const activeRequestRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionRef = useRef<RequestSession | null>(null);
   const mountedRef = useRef(true);
-  const pendingDeltaRef = useRef('');
-  const frameRef = useRef<number | null>(null);
 
   const replaceConversation = useCallback(
     (conversation: Conversation, persist = true) => {
@@ -105,107 +108,150 @@ export const useChatController = (
     [repository],
   );
 
-  const cancelFrame = useCallback(() => {
-    if (frameRef.current === null) {
+  const cancelFrame = useCallback((session: RequestSession) => {
+    if (session.frame === null) {
       return;
     }
     if (typeof cancelAnimationFrame === 'function') {
-      cancelAnimationFrame(frameRef.current);
+      cancelAnimationFrame(session.frame);
     } else {
-      clearTimeout(frameRef.current);
+      clearTimeout(session.frame);
     }
-    frameRef.current = null;
+    session.frame = null;
   }, []);
 
-  const runRequest = useCallback(
-    async (startingConversation: Conversation) => {
-      if (activeRequestRef.current) {
+  const applyToSession = useCallback((session: RequestSession, event: ChatStreamEvent) => {
+    session.conversation = applyStreamEvent(session.conversation, event, now());
+    if (!session.removed) {
+      replaceConversation(session.conversation);
+    }
+  }, [now, replaceConversation]);
+
+  const flushDelta = useCallback((session: RequestSession) => {
+    cancelFrame(session);
+    if (!session.pendingDelta || session.removed) {
+      session.pendingDelta = '';
+      return;
+    }
+    const text = session.pendingDelta;
+    session.pendingDelta = '';
+    applyToSession(session, { type: 'delta', text });
+  }, [applyToSession, cancelFrame]);
+
+  const cancelActive = useCallback((remove: boolean, showStoppedError: boolean) => {
+    const session = sessionRef.current;
+    if (!session) {
+      return;
+    }
+    session.cancelled = true;
+    session.removed = remove;
+    if (remove) {
+      cancelFrame(session);
+      session.pendingDelta = '';
+    } else {
+      flushDelta(session);
+      session.conversation = markConversationAborted(session.conversation, now());
+      replaceConversation(session.conversation);
+    }
+    session.controller.abort();
+    if (sessionRef.current === session) {
+      sessionRef.current = null;
+      setRequestState('idle');
+    }
+    if (showStoppedError) {
+      setError({
+        code: 'aborted',
+        message: 'Response stopped. Retry to continue this turn.',
+        retryable: true,
+      });
+    }
+  }, [cancelFrame, flushDelta, now, replaceConversation]);
+
+  const runRequest = useCallback(async (startingConversation: Conversation) => {
+    if (sessionRef.current) {
+      return;
+    }
+    const session: RequestSession = {
+      controller: new AbortController(),
+      conversation: startingConversation,
+      pendingDelta: '',
+      frame: null,
+      cancelled: false,
+      removed: false,
+    };
+    sessionRef.current = session;
+    setRequestState('streaming');
+
+    const scheduleDelta = () => {
+      if (session.frame !== null || session.cancelled) {
         return;
       }
-
-      activeRequestRef.current = true;
-      setRequestState('streaming');
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      let current = startingConversation;
-
-      const apply = (event: ChatStreamEvent) => {
-        current = applyStreamEvent(current, event, now());
-        replaceConversation(current);
-      };
-      const flushDelta = () => {
-        cancelFrame();
-        if (!pendingDeltaRef.current) {
-          return;
+      const callback = () => {
+        session.frame = null;
+        if (!session.cancelled) {
+          flushDelta(session);
         }
-        const text = pendingDeltaRef.current;
-        pendingDeltaRef.current = '';
-        apply({ type: 'delta', text });
       };
-      const scheduleDelta = () => {
-        if (frameRef.current !== null) {
-          return;
-        }
-        const callback = () => {
-          frameRef.current = null;
-          flushDelta();
-        };
-        frameRef.current = typeof requestAnimationFrame === 'function'
-          ? requestAnimationFrame(callback)
-          : window.setTimeout(callback, 16);
-      };
+      session.frame = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame(callback)
+        : window.setTimeout(callback, 16);
+    };
 
-      try {
-        await transport({
-          request: toChatRequest(startingConversation),
-          signal: controller.signal,
-          onEvent(event) {
-            if (event.type === 'delta') {
-              pendingDeltaRef.current += event.text;
-              scheduleDelta();
-              return;
-            }
-            flushDelta();
-            apply(event);
-            if (event.type === 'error') {
-              setError({
-                code: event.code,
-                message: event.message,
-                retryable: event.retryable,
-              });
-            }
-          },
-        });
-      } catch (caught) {
-        flushDelta();
-        if (!controller.signal.aborted) {
-          const nextError = caught instanceof ChatTransportError
-            ? {
-                code: caught.code,
-                message: caught.message,
-                retryable: caught.retryable,
-              }
-            : fallbackError;
-          setError(nextError);
-          const last = current.messages.at(-1);
-          if (last?.role === 'assistant' && last.status === 'streaming') {
-            apply({ type: 'error', ...nextError });
+    try {
+      await transport({
+        request: toChatRequest(startingConversation),
+        signal: session.controller.signal,
+        onEvent(event) {
+          if (session.cancelled) {
+            return;
           }
+          if (event.type === 'delta') {
+            session.pendingDelta += event.text;
+            scheduleDelta();
+            return;
+          }
+          flushDelta(session);
+          applyToSession(session, event);
+          if (event.type === 'error') {
+            setError({
+              code: event.code,
+              message: event.message,
+              retryable: event.retryable,
+            });
+          }
+        },
+      });
+    } catch (caught) {
+      if (!session.cancelled && !session.controller.signal.aborted) {
+        flushDelta(session);
+        const nextError = caught instanceof ChatTransportError
+          ? { code: caught.code, message: caught.message, retryable: caught.retryable }
+          : fallbackError;
+        setError(nextError);
+        const last = session.conversation.messages.at(-1);
+        if (last?.role === 'assistant' && last.status === 'streaming') {
+          applyToSession(session, { type: 'error', ...nextError });
+        } else if (last?.role === 'user') {
+          session.conversation = appendAssistantFailure(
+            session.conversation,
+            nextError,
+            idFactory(),
+            now(),
+          );
+          replaceConversation(session.conversation);
         }
-      } finally {
-        cancelFrame();
-        pendingDeltaRef.current = '';
-        activeRequestRef.current = false;
-        if (abortControllerRef.current === controller) {
-          abortControllerRef.current = null;
-        }
+      }
+    } finally {
+      cancelFrame(session);
+      session.pendingDelta = '';
+      if (sessionRef.current === session) {
+        sessionRef.current = null;
         if (mountedRef.current) {
           setRequestState('idle');
         }
       }
-    },
-    [cancelFrame, now, replaceConversation, transport],
-  );
+    }
+  }, [applyToSession, cancelFrame, flushDelta, idFactory, now, replaceConversation, transport]);
 
   const activeConversation =
     conversations.find(({ id }) => id === activeId) ?? conversations[0];
@@ -217,16 +263,13 @@ export const useChatController = (
     const content = draft.trim();
     const last = conversation?.messages.at(-1);
     if (
-      !conversation ||
-      !content ||
-      activeRequestRef.current ||
-      error ||
+      !conversation || !content || sessionRef.current || error ||
+      last?.role === 'user' ||
       (last?.role === 'assistant' &&
         (last.status === 'error' || last.status === 'aborted'))
     ) {
       return;
     }
-
     const updated = appendUserTurn(conversation, content, idFactory(), now());
     setDraft('');
     setError(null);
@@ -235,29 +278,14 @@ export const useChatController = (
   }, [draft, error, idFactory, now, replaceConversation, runRequest]);
 
   const stop = useCallback(() => {
-    if (!activeRequestRef.current) {
-      return;
-    }
-    abortControllerRef.current?.abort();
-    const conversation = conversationsRef.current.find(
-      ({ id }) => id === activeIdRef.current,
-    );
-    if (conversation) {
-      const stopped = markConversationAborted(conversation, now());
-      replaceConversation(stopped);
-      setError({
-        code: 'aborted',
-        message: 'Response stopped. Retry to continue this turn.',
-        retryable: true,
-      });
-    }
-  }, [now, replaceConversation]);
+    cancelActive(false, true);
+  }, [cancelActive]);
 
   const retry = useCallback(async () => {
     const conversation = conversationsRef.current.find(
       ({ id }) => id === activeIdRef.current,
     );
-    if (!conversation || activeRequestRef.current) {
+    if (!conversation || sessionRef.current) {
       return;
     }
     const prepared = prepareRetry(conversation);
@@ -270,7 +298,7 @@ export const useChatController = (
   }, [replaceConversation, runRequest]);
 
   const newConversation = useCallback(() => {
-    abortControllerRef.current?.abort();
+    cancelActive(false, false);
     const conversation = createConversation(idFactory(), now());
     const next = [conversation, ...conversationsRef.current];
     conversationsRef.current = next;
@@ -279,24 +307,25 @@ export const useChatController = (
     setActiveId(conversation.id);
     setDraft('');
     setError(null);
-  }, [idFactory, now]);
+  }, [cancelActive, idFactory, now]);
 
   const selectConversation = useCallback((id: string) => {
     if (!conversationsRef.current.some((conversation) => conversation.id === id)) {
       return;
     }
-    abortControllerRef.current?.abort();
+    cancelActive(false, false);
     activeIdRef.current = id;
     setActiveId(id);
     setDraft('');
     setError(null);
-  }, []);
+  }, [cancelActive]);
 
   const deleteConversation = useCallback((id: string) => {
+    if (sessionRef.current?.conversation.id === id) {
+      cancelActive(true, false);
+    }
     repository.remove(id);
-    let next = conversationsRef.current.filter(
-      (conversation) => conversation.id !== id,
-    );
+    let next = conversationsRef.current.filter((conversation) => conversation.id !== id);
     if (next.length === 0) {
       next = [createConversation(idFactory(), now())];
     }
@@ -308,12 +337,19 @@ export const useChatController = (
       setDraft('');
       setError(null);
     }
-  }, [idFactory, now, repository]);
+  }, [cancelActive, idFactory, now, repository]);
 
-  useEffect(() => () => {
-    mountedRef.current = false;
-    abortControllerRef.current?.abort();
-    cancelFrame();
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const session = sessionRef.current;
+      if (session) {
+        session.cancelled = true;
+        cancelFrame(session);
+        session.controller.abort();
+      }
+    };
   }, [cancelFrame]);
 
   return {

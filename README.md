@@ -6,7 +6,7 @@ The browser never receives the provider token. React sends a typed conversation 
 
 ## Start locally
 
-Prerequisites: Node.js 22 or newer and an `SC_TOKEN` for Singularity Compute.
+Prerequisites: Node.js 22.12 or newer and an `SC_TOKEN` for Singularity Compute.
 
 ```powershell
 npm install

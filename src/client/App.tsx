@@ -90,7 +90,9 @@ export const App = ({
               onRetry={() => void chat.retry()}
             />
           </div>
-          {chat.error && !chat.activeConversation.messages.at(-1)?.metadata?.error ? (
+          {chat.error &&
+          chat.activeConversation.messages.at(-1)?.status !== 'error' &&
+          chat.activeConversation.messages.at(-1)?.status !== 'aborted' ? (
             <div className="request-error" role="alert">
               <span>{chat.error.message}</span>
               {chat.error.retryable ? (

@@ -51,6 +51,30 @@ describe('createConversationRepository', () => {
     expect(createConversationRepository(storage).list()).toEqual([]);
   });
 
+  it('recovers persisted in-flight assistant turns as aborted', () => {
+    const interrupted: Conversation = {
+      ...conversation('interrupted', 2),
+      messages: [
+        { id: 'user', role: 'user', content: 'Question', status: 'complete', createdAt: 1 },
+        { id: 'assistant', role: 'assistant', content: 'Partial', status: 'streaming', createdAt: 2 },
+      ],
+    };
+    const storage = memoryStorage({
+      'quickllm:conversations:v1': JSON.stringify({
+        version: 1,
+        conversations: [interrupted],
+      }),
+    });
+
+    const [recovered] = createConversationRepository(storage).list();
+
+    expect(recovered.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Partial',
+      status: 'aborted',
+    });
+  });
+
   it('continues in memory when storage reads throw', () => {
     const storage = throwingStorage('read');
 

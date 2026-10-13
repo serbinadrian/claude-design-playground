@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode, type PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Conversation } from '@client/chat-domain';
@@ -175,10 +176,12 @@ describe('useChatController', () => {
     act(() => firstOptions?.onEvent({
       type: 'start', requestId: 'request', model: 'asi1-mini', httpStatus: 200,
     }));
+    act(() => firstOptions?.onEvent({ type: 'delta', text: 'Partial answer' }));
     act(() => result.current.stop());
 
     await waitFor(() => expect(result.current.requestState).toBe('idle'));
     expect(result.current.activeConversation.messages.at(-1)?.status).toBe('aborted');
+    expect(result.current.activeConversation.messages.at(-1)?.content).toBe('Partial answer');
 
     act(() => result.current.setDraft('Not allowed yet'));
     await act(async () => result.current.submit());
@@ -227,7 +230,7 @@ describe('useChatController', () => {
       code: 'too_many_messages',
       message: 'Keep the full visible history.',
     });
-    expect(result.current.activeConversation.messages).toHaveLength(3);
+    expect(result.current.activeConversation.messages).toHaveLength(4);
 
     await act(async () => result.current.retry());
     expect(transport).toHaveBeenCalledTimes(2);
@@ -254,5 +257,95 @@ describe('useChatController', () => {
     unmount();
 
     expect(signal?.aborted).toBe(true);
+  });
+
+  it('survives the StrictMode setup and cleanup replay', async () => {
+    const transport = vi.fn<Transport>(async (options) => {
+      options.onEvent({
+        type: 'start', requestId: 'request', model: 'asi1-mini', httpStatus: 200,
+      });
+      options.onEvent({ type: 'delta', text: 'Answer' });
+      options.onEvent({ type: 'complete', finishReason: 'stop' });
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StrictMode>{children}</StrictMode>
+    );
+    const { result } = renderHook(() =>
+      useChatController({
+        repository: repository(),
+        transport,
+        idFactory: ids('thread', 'user'),
+        now: clock(),
+      }),
+    { wrapper });
+
+    act(() => result.current.setDraft('Question'));
+    await act(async () => result.current.submit());
+
+    expect(result.current.requestState).toBe('idle');
+    expect(result.current.activeConversation.messages).toMatchObject([
+      { role: 'user', content: 'Question' },
+      { role: 'assistant', content: 'Answer', status: 'complete' },
+    ]);
+  });
+
+  it('does not resurrect a deleted active conversation from late stream events', async () => {
+    let options: TransportOptions | undefined;
+    const pending = deferred();
+    const transport = vi.fn<Transport>((value) => {
+      options = value;
+      return pending.promise;
+    });
+    const { result } = renderHook(() =>
+      useChatController({
+        repository: repository(),
+        transport,
+        idFactory: ids('thread', 'user', 'replacement'),
+        now: clock(),
+      }),
+    );
+
+    act(() => result.current.setDraft('Question'));
+    act(() => void result.current.submit());
+    act(() => options?.onEvent({
+      type: 'start', requestId: 'request', model: 'asi1-mini', httpStatus: 200,
+    }));
+    act(() => result.current.deleteConversation('thread'));
+    act(() => {
+      options?.onEvent({ type: 'delta', text: 'Late answer' });
+      options?.onEvent({ type: 'complete', finishReason: 'stop' });
+      pending.resolve();
+    });
+
+    await waitFor(() => expect(result.current.requestState).toBe('idle'));
+    expect(result.current.conversations.map(({ id }) => id)).toEqual(['replacement']);
+  });
+
+  it('marks an in-flight thread aborted before opening a new conversation', async () => {
+    let options: TransportOptions | undefined;
+    const transport = vi.fn<Transport>((value) => {
+      options = value;
+      return new Promise(() => undefined);
+    });
+    const { result } = renderHook(() =>
+      useChatController({
+        repository: repository(),
+        transport,
+        idFactory: ids('thread', 'user', 'next'),
+        now: clock(),
+      }),
+    );
+
+    act(() => result.current.setDraft('Question'));
+    act(() => void result.current.submit());
+    act(() => options?.onEvent({
+      type: 'start', requestId: 'request', model: 'asi1-mini', httpStatus: 200,
+    }));
+    act(() => result.current.newConversation());
+
+    expect(result.current.activeConversation.id).toBe('next');
+    expect(
+      result.current.conversations.find(({ id }) => id === 'thread')?.messages.at(-1)?.status,
+    ).toBe('aborted');
   });
 });

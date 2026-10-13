@@ -1,5 +1,6 @@
 import {
   useId,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -37,6 +38,7 @@ export const Composer = ({
   disabledReason,
 }: ComposerProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasFocusedRef = useRef(false);
   const listboxId = useId();
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
   const [dismissedDraft, setDismissedDraft] = useState<string | null>(null);
@@ -101,6 +103,13 @@ export const Composer = ({
   };
 
   const activePreset = presets[selectedIndex];
+
+  useEffect(() => {
+    if (!disabled && !hasFocusedRef.current) {
+      hasFocusedRef.current = true;
+      textareaRef.current?.focus();
+    }
+  }, [disabled]);
 
   return (
     <div className="composer">

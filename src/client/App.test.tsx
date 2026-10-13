@@ -129,11 +129,14 @@ describe('App', () => {
     expect(messages[1]).toHaveTextContent('A fish is an aquatic vertebrate.');
     expect(screen.getByText('/api/chat')).toBeVisible();
     expect(screen.getByText('POST')).toBeVisible();
-    expect(screen.getByText('2 messages')).toBeVisible();
+    expect(screen.getByText('1 message')).toBeVisible();
     expect(screen.getAllByText('asi1-mini').length).toBeGreaterThan(0);
     expect(screen.getByText('110 ms')).toBeVisible();
     expect(screen.getByText('16 tokens')).toBeVisible();
     expect(screen.getByText('HTTP 200')).toBeVisible();
+    expect(screen.getByTestId('payload-preview')).not.toHaveTextContent(
+      'A fish is an aquatic vertebrate.',
+    );
   });
 
   it('routes history, new, retry, and stop actions to the controller', async () => {

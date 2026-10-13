@@ -26,7 +26,11 @@ export const RequestInspector = ({
     .find(({ role }) => role === 'assistant');
   const metadata = assistant?.metadata;
   const usage = metadata?.usage?.totalTokens;
-  const payload = conversation.messages.map(({ role, content }) => ({
+  const lastMessage = conversation.messages.at(-1);
+  const submittedMessages = lastMessage?.role === 'assistant'
+    ? conversation.messages.slice(0, -1)
+    : conversation.messages;
+  const payload = submittedMessages.map(({ role, content }) => ({
     role,
     content: content.length > 70 ? `${content.slice(0, 67)}…` : content,
   }));
@@ -53,7 +57,9 @@ export const RequestInspector = ({
         <h2>Context</h2>
         <dl>
           <Row label="Model">{metadata?.model ?? model}</Row>
-          <Row label="Messages">{conversation.messages.length} messages</Row>
+          <Row label="Messages">
+            {submittedMessages.length} {submittedMessages.length === 1 ? 'message' : 'messages'}
+          </Row>
           <Row label="Elapsed">
             {metadata?.elapsedMs === undefined ? '—' : `${metadata.elapsedMs} ms`}
           </Row>
@@ -63,7 +69,9 @@ export const RequestInspector = ({
       </section>
       <section className="payload-section">
         <h2>Payload preview</h2>
-        <pre>{JSON.stringify({ model, messages: payload, stream: true }, null, 2)}</pre>
+        <pre data-testid="payload-preview">
+          {JSON.stringify({ model, messages: payload, stream: true }, null, 2)}
+        </pre>
       </section>
       <footer>
         <span>SC_TOKEN</span>

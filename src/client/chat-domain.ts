@@ -203,6 +203,30 @@ export const markConversationAborted = (
     };
   });
 
+export const appendAssistantFailure = (
+  conversation: Conversation,
+  error: ConversationError,
+  id: string,
+  now: number,
+): Conversation => ({
+  ...conversation,
+  messages: [
+    ...conversation.messages,
+    {
+      id,
+      role: 'assistant',
+      content: '',
+      status: 'error',
+      createdAt: now,
+      metadata: {
+        completedAt: now,
+        error,
+      },
+    },
+  ],
+  updatedAt: now,
+});
+
 export const prepareRetry = (conversation: Conversation): Conversation => {
   const lastMessage = conversation.messages.at(-1);
   if (

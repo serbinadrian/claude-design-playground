@@ -67,6 +67,14 @@ export const MessageList = ({ conversation, onRetry }: MessageListProps) => {
                 ) : null}
               </div>
             ) : null}
+            {message.status === 'aborted' ? (
+              <div className="message__error">
+                <span>This response was stopped before completion.</span>
+                <button onClick={onRetry} type="button" aria-label="Retry response">
+                  Retry
+                </button>
+              </div>
+            ) : null}
           </article>
         </li>
       ))}

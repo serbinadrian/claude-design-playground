@@ -2,7 +2,7 @@ import { createServer, request as httpRequest } from 'node:http';
 import { resolve } from 'node:path';
 
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '@server/app';
 import type { ServerConfig } from '@server/config';
@@ -126,6 +126,7 @@ describe('createApp', () => {
   });
 
   it('converts provider failures into safe stream errors', async () => {
+    const logger = { error: vi.fn() };
     const provider = providerFrom(async function* () {
       yield* [] as ProviderEvent[];
       throw new ProviderError(
@@ -134,7 +135,7 @@ describe('createApp', () => {
         true,
       );
     });
-    const app = createApp({ config: readyConfig, provider });
+    const app = createApp({ config: readyConfig, provider, logger });
 
     const response = await request(app).post('/api/chat').send(validBody);
     const events = parseEvents(response.text);
@@ -145,6 +146,10 @@ describe('createApp', () => {
       message: 'The model service returned HTTP 503.',
       retryable: true,
     });
+    expect(logger.error).toHaveBeenCalledWith(
+      'Chat provider request failed.',
+      expect.objectContaining({ code: 'upstream_http', retryable: true }),
+    );
   });
 
   it('rejects request bodies over 48 KB with a stable error', async () => {
