@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "concurrently -k -n server,client -c yellow,green \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
-    "dev:server": "tsx watch src/server/index.ts",
-    "build": "vite build && tsup src/server/index.ts --format esm --out-dir dist/server --sourcemap --clean false",
+    "dev:server": "tsx watch --tsconfig tsconfig.server.json src/server/index.ts",
+    "build": "vite build && tsup src/server/index.ts --format esm --out-dir dist/server --sourcemap --clean false --tsconfig tsconfig.server.json",
     "start": "node dist/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

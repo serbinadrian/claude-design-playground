@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import express, {
   type ErrorRequestHandler,
@@ -176,6 +178,15 @@ export const createApp = ({
 
     await streamChat(request, response, config, chatProvider);
   });
+
+  const clientDirectory = resolve(process.cwd(), 'dist/client');
+  const clientEntry = resolve(clientDirectory, 'index.html');
+  if (existsSync(clientEntry)) {
+    app.use(express.static(clientDirectory));
+    app.get(/^(?!\/api(?:\/|$)).*/, (_request, response) => {
+      response.sendFile(clientEntry);
+    });
+  }
 
   app.use(bodyErrorHandler);
   return app;
