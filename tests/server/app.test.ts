@@ -175,7 +175,7 @@ describe('createApp', () => {
       provider: providerFrom(async function* () {
         yield { type: 'complete', finishReason: 'stop' };
       }),
-      clientDirectory: resolve(process.cwd(), 'src/server/test-fixtures/client'),
+      clientDirectory: resolve(process.cwd(), 'tests/fixtures/client'),
     });
 
     const navigation = await request(app).get('/design/workflow');

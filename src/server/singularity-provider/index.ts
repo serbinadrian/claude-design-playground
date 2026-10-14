@@ -4,91 +4,15 @@ import {
   type ProviderEvent,
   ProviderError,
 } from '@server/provider';
+import {
+  normalizeUsage,
+  type OpenAiChunk,
+} from '@server/singularity-provider/openai-chunk';
+import { readSseData } from '@server/singularity-provider/sse-reader';
 
 const ENDPOINT = 'https://llm.a.singularitycompute.com/v1/chat/completions';
 const MODEL = 'asi1-mini';
 const DEFAULT_TIMEOUT_MS = 60_000;
-
-interface OpenAiChunk {
-  choices?: Array<{
-    delta?: { content?: unknown };
-    finish_reason?: unknown;
-  }>;
-  usage?: {
-    prompt_tokens?: unknown;
-    completion_tokens?: unknown;
-    total_tokens?: unknown;
-  };
-}
-
-const extractData = (block: string): string | undefined => {
-  const data = block
-    .split('\n')
-    .filter((line) => !line.startsWith(':'))
-    .filter((line) => line === 'data' || line.startsWith('data:'))
-    .map((line) => {
-      const value = line.slice(5);
-      return value.startsWith(' ') ? value.slice(1) : value;
-    });
-
-  return data.length > 0 ? data.join('\n') : undefined;
-};
-
-async function* readSseData(
-  body: ReadableStream<Uint8Array>,
-): AsyncGenerator<string> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value, { stream: !done });
-      buffer = buffer.replaceAll('\r\n', '\n');
-
-      let boundary = buffer.indexOf('\n\n');
-      while (boundary >= 0) {
-        const block = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        const data = extractData(block);
-        if (data !== undefined) {
-          yield data;
-        }
-        boundary = buffer.indexOf('\n\n');
-      }
-
-      if (done) {
-        const data = extractData(buffer);
-        if (data !== undefined) {
-          yield data;
-        }
-        return;
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-const asNumber = (value: unknown): number | undefined =>
-  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-
-const normalizeUsage = (chunk: OpenAiChunk): Usage | undefined => {
-  if (!chunk.usage) {
-    return undefined;
-  }
-
-  const usage: Usage = {
-    promptTokens: asNumber(chunk.usage.prompt_tokens),
-    completionTokens: asNumber(chunk.usage.completion_tokens),
-    totalTokens: asNumber(chunk.usage.total_tokens),
-  };
-
-  return Object.values(usage).some((value) => value !== undefined)
-    ? usage
-    : undefined;
-};
 
 const classifyAbort = (
   callerSignal: AbortSignal,

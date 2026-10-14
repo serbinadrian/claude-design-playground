@@ -67,6 +67,22 @@ const emptyResponseError: ConversationError = {
   retryable: true,
 };
 
+const upsertConversation = (
+  conversations: Conversation[],
+  conversation: Conversation,
+): Conversation[] => {
+  if (!conversations.some(({ id }) => id === conversation.id)) {
+    return [conversation, ...conversations];
+  }
+
+  return conversations.map((candidate) => {
+    if (candidate.id === conversation.id) {
+      return conversation;
+    }
+    return candidate;
+  });
+};
+
 export const useChatController = (
   options: UseChatControllerOptions = {},
 ): ChatController => {
@@ -97,11 +113,7 @@ export const useChatController = (
 
   const replaceConversation = useCallback(
     (conversation: Conversation, persist = true) => {
-      const next = conversationsRef.current.some(({ id }) => id === conversation.id)
-        ? conversationsRef.current.map((candidate) =>
-            candidate.id === conversation.id ? conversation : candidate,
-          )
-        : [conversation, ...conversationsRef.current];
+      const next = upsertConversation(conversationsRef.current, conversation);
       conversationsRef.current = next;
       if (mountedRef.current) {
         setConversations(next);

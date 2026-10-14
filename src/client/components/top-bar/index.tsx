@@ -1,14 +1,13 @@
 export type ApiStatus = 'loading' | 'ready' | 'unconfigured' | 'unavailable';
 
-export const TopBar = ({ status }: { status: ApiStatus }) => {
-  const label = status === 'ready'
-    ? 'API ready'
-    : status === 'unconfigured'
-      ? 'API unconfigured'
-      : status === 'unavailable'
-        ? 'API unavailable'
-        : 'Checking API';
+const STATUS_LABELS: Record<ApiStatus, string> = {
+  loading: 'Checking API',
+  ready: 'API ready',
+  unconfigured: 'API unconfigured',
+  unavailable: 'API unavailable',
+};
 
+export const TopBar = ({ status }: { status: ApiStatus }) => {
   return (
     <header className="topbar">
       <a className="brand" href="/" aria-label="Quick LLM Console home">
@@ -21,7 +20,7 @@ export const TopBar = ({ status }: { status: ApiStatus }) => {
       </div>
       <div className={`api-status api-status--${status}`}>
         <span className="api-status__dot" aria-hidden="true" />
-        {label}
+        {STATUS_LABELS[status]}
       </div>
     </header>
   );

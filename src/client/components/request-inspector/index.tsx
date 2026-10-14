@@ -1,20 +1,12 @@
-import type { ReactNode } from 'react';
-
 import type { Conversation } from '@client/chat-domain';
-import type { RequestState } from '@client/use-chat-controller';
+import { InspectorRow } from '@components/request-inspector/inspector-row';
+import type { RequestState } from '@hooks/use-chat-controller';
 
 export interface RequestInspectorProps {
   conversation: Conversation;
   model: string;
   requestState: RequestState;
 }
-
-const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="inspector-row">
-    <dt>{label}</dt>
-    <dd>{children}</dd>
-  </div>
-);
 
 export const RequestInspector = ({
   conversation,
@@ -41,30 +33,30 @@ export const RequestInspector = ({
       <section>
         <h2>Transport</h2>
         <dl>
-          <Row label="Endpoint"><code>/api/chat</code></Row>
-          <Row label="Method"><span className="method">POST</span></Row>
-          <Row label="Stream">
+          <InspectorRow label="Endpoint"><code>/api/chat</code></InspectorRow>
+          <InspectorRow label="Method"><span className="method">POST</span></InspectorRow>
+          <InspectorRow label="Stream">
             <span className={`state state--${requestState}`}>
               {requestState === 'streaming' ? 'ACTIVE' : 'IDLE'}
             </span>
-          </Row>
-          <Row label="Outcome">
+          </InspectorRow>
+          <InspectorRow label="Outcome">
             {metadata?.httpStatus ? `HTTP ${metadata.httpStatus}` : '—'}
-          </Row>
+          </InspectorRow>
         </dl>
       </section>
       <section>
         <h2>Context</h2>
         <dl>
-          <Row label="Model">{metadata?.model ?? model}</Row>
-          <Row label="Messages">
+          <InspectorRow label="Model">{metadata?.model ?? model}</InspectorRow>
+          <InspectorRow label="Messages">
             {submittedMessages.length} {submittedMessages.length === 1 ? 'message' : 'messages'}
-          </Row>
-          <Row label="Elapsed">
+          </InspectorRow>
+          <InspectorRow label="Elapsed">
             {metadata?.elapsedMs === undefined ? '—' : `${metadata.elapsedMs} ms`}
-          </Row>
-          <Row label="Usage">{usage === undefined ? 'not reported' : `${usage} tokens`}</Row>
-          <Row label="Finish">{metadata?.finishReason ?? '—'}</Row>
+          </InspectorRow>
+          <InspectorRow label="Usage">{usage === undefined ? 'not reported' : `${usage} tokens`}</InspectorRow>
+          <InspectorRow label="Finish">{metadata?.finishReason ?? '—'}</InspectorRow>
         </dl>
       </section>
       <section className="payload-section">

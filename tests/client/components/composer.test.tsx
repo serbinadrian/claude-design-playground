@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Composer, type ComposerProps } from '@client/components/Composer';
+import { Composer, type ComposerProps } from '@components/composer';
 
 const renderComposer = (overrides: Partial<ComposerProps> = {}) => {
   const props: ComposerProps = {
