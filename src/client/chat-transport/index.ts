@@ -2,6 +2,7 @@ import type {
   ApiErrorResponse,
   ChatRequest,
   ChatStreamEvent,
+  Usage,
 } from '@shared/chat-contracts';
 
 export class ChatTransportError extends Error {
@@ -32,6 +33,24 @@ const malformedStream = () =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
+
+const readUsage = (value: unknown): Usage | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const usage: Usage = {};
+  if (typeof value.promptTokens === 'number') {
+    usage.promptTokens = value.promptTokens;
+  }
+  if (typeof value.completionTokens === 'number') {
+    usage.completionTokens = value.completionTokens;
+  }
+  if (typeof value.totalTokens === 'number') {
+    usage.totalTokens = value.totalTokens;
+  }
+  return usage;
+};
 
 const parseEvent = (data: string): ChatStreamEvent => {
   let value: unknown;
@@ -67,19 +86,7 @@ const parseEvent = (data: string): ChatStreamEvent => {
     value.type === 'complete' &&
     (typeof value.finishReason === 'string' || value.finishReason === null)
   ) {
-    const usage = isRecord(value.usage)
-      ? {
-          ...(typeof value.usage.promptTokens === 'number'
-            ? { promptTokens: value.usage.promptTokens }
-            : {}),
-          ...(typeof value.usage.completionTokens === 'number'
-            ? { completionTokens: value.usage.completionTokens }
-            : {}),
-          ...(typeof value.usage.totalTokens === 'number'
-            ? { totalTokens: value.usage.totalTokens }
-            : {}),
-        }
-      : undefined;
+    const usage = readUsage(value.usage);
     return {
       type: 'complete',
       finishReason: value.finishReason,

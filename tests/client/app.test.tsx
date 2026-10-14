@@ -2,10 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { App } from '@client/App';
+import { App } from '@app/index';
 import type { Conversation } from '@client/chat-domain';
 import { fetchHealth } from '@client/health-client';
-import type { ChatController } from '@client/use-chat-controller';
+import type { ChatController } from '@hooks/use-chat-controller';
 
 const conversation: Conversation = {
   id: 'active',
