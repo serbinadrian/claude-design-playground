@@ -20,7 +20,10 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
     "baseUrl": ".",
     "paths": {
+      "@app/*": ["src/client/app/*"],
       "@client/*": ["src/client/*"],
+      "@components/*": ["src/client/components/*"],
+      "@hooks/*": ["src/client/hooks/*"],
       "@server/*": ["src/server/*"],
       "@shared/*": ["src/shared/*"]
     }

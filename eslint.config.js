@@ -18,6 +18,20 @@ export default tseslint.config(
     plugins: {
       'react-hooks': reactHooks,
     },
-    rules: reactHooks.configs.flat.recommended.rules,
+    rules: {
+      ...reactHooks.configs.flat.recommended.rules,
+      'no-nested-ternary': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['./*', '../*'],
+              message: 'Use a configured import alias instead of a relative import.',
+            },
+          ],
+        },
+      ],
+    },
   },
 );

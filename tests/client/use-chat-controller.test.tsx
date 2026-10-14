@@ -6,7 +6,7 @@ import type { Conversation } from '@client/chat-domain';
 import type { ConversationRepository } from '@client/conversation-storage';
 import type { streamChat } from '@client/chat-transport';
 import { ChatTransportError } from '@client/chat-transport';
-import { useChatController } from '@client/use-chat-controller';
+import { useChatController } from '@hooks/use-chat-controller';
 
 type Transport = typeof streamChat;
 type TransportOptions = Parameters<Transport>[0];
