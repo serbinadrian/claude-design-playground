@@ -1,4 +1,5 @@
 import type { Conversation } from '@client/chat-domain';
+import { Icon } from '@components/icon';
 
 interface MobileConversationControlsProps {
   activeId: string;
@@ -15,7 +16,8 @@ export const MobileConversationControls = ({
 }: MobileConversationControlsProps) => (
   <nav className="mobile-actions" aria-label="Mobile conversation controls">
     <button aria-label="New mobile request" onClick={onNew} type="button">
-      ＋ New
+      <Icon name="plus" />
+      New
     </button>
     <label>
       <span className="sr-only">Mobile conversation history</span>

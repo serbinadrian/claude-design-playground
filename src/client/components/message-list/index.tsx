@@ -1,4 +1,6 @@
 import type { Conversation, ConversationMessage } from '@client/chat-domain';
+import { BrandMark } from '@components/brand';
+import { Icon } from '@components/icon';
 
 export interface MessageListProps {
   conversation: Conversation;
@@ -32,6 +34,7 @@ const MessageError = ({ message, onRetry }: {
         <span>{message.metadata.error.message}</span>
         {message.metadata.error.retryable && (
           <button onClick={onRetry} type="button" aria-label="Retry response">
+            <Icon name="rotate-ccw" />
             Retry
           </button>
         )}
@@ -47,6 +50,7 @@ const MessageError = ({ message, onRetry }: {
     <div className="message__error">
       <span>This response was stopped before completion.</span>
       <button onClick={onRetry} type="button" aria-label="Retry response">
+        <Icon name="rotate-ccw" />
         Retry
       </button>
     </div>
@@ -59,7 +63,7 @@ const MessageItem = ({ message, index, onRetry }: {
   onRetry(): void;
 }) => {
   const isStreaming = message.status === 'streaming';
-  const author = message.role === 'user' ? 'YOU' : 'ASI1-MINI';
+  const isAssistant = message.role === 'assistant';
 
   return (
     <li
@@ -69,7 +73,14 @@ const MessageItem = ({ message, index, onRetry }: {
       <div className="message__index">{String(index + 1).padStart(2, '0')}</div>
       <article>
         <header>
-          <span>{author}</span>
+          {isAssistant ? (
+            <span className="message__author">
+              <BrandMark className="message__mark" />
+              ASI1-MINI
+            </span>
+          ) : (
+            <span>YOU</span>
+          )}
           <small>{messageMeta(message)}</small>
         </header>
         <div className="message__body">
@@ -84,7 +95,9 @@ const MessageItem = ({ message, index, onRetry }: {
 
 const EmptyConversation = () => (
   <div className="empty-state">
-    <div className="empty-state__glyph" aria-hidden="true">›_</div>
+    <div className="empty-state__glyph" aria-hidden="true">
+      <BrandMark />
+    </div>
     <p className="eyebrow">READY FOR INPUT</p>
     <h1>Start with a question</h1>
     <p>Type a prompt or use a slash command to shape the request.</p>
