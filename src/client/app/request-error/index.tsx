@@ -1,4 +1,5 @@
 import type { ConversationError } from '@client/chat-domain';
+import { Icon } from '@components/icon';
 
 interface RequestErrorProps {
   error: ConversationError | null;
@@ -16,6 +17,7 @@ export const RequestError = ({ error, isDisplayed, onRetry }: RequestErrorProps)
       <span>{error.message}</span>
       {error.retryable && (
         <button onClick={onRetry} type="button" aria-label="Retry response">
+          <Icon name="rotate-ccw" />
           Retry
         </button>
       )}

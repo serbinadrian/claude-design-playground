@@ -1,4 +1,5 @@
 import type { Conversation } from '@client/chat-domain';
+import { Icon } from '@components/icon';
 import { PresetList } from '@components/history-rail/preset-list';
 import { RecentConversations } from '@components/history-rail/recent-conversations';
 
@@ -21,8 +22,8 @@ export const HistoryRail = ({
 }: HistoryRailProps) => (
   <aside className="history-rail" aria-label="Conversation history">
     <button aria-label="New request" className="new-request" onClick={onNew} type="button">
-      <span aria-hidden="true">＋</span>
-      New request
+      <Icon name="plus" />
+      <span>New request</span>
       <kbd>⌘ K</kbd>
     </button>
 

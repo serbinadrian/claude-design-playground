@@ -115,6 +115,38 @@ describe('App', () => {
     expect(screen.getByText(/Type a prompt or use a slash command/i)).toBeVisible();
   });
 
+  it('applies Singularity Compute branding to the shell and conversation', async () => {
+    const { container } = render(
+      <App
+        controller={controller()}
+        healthLoader={async () => ({ status: 'ready', model: 'asi1-mini' })}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText('API ready')).toBeVisible());
+    const home = screen.getByRole('link', { name: 'Quick LLM Console home' });
+    expect(home).toContainElement(screen.getByRole('img', { name: 'Singularity Compute' }));
+    expect(home).toHaveTextContent('Quick LLM');
+    expect(screen.getByText('ASI1-MINI').querySelector('img[src="/brand/mark.png"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete What is fish?' }).querySelector('svg')).not.toBeNull();
+    expect(container.querySelector('.inspector > header svg')).not.toBeNull();
+  });
+
+  it('shows the brand mark in the empty state', async () => {
+    const empty: Conversation = {
+      id: 'empty', title: 'New request', messages: [], createdAt: 1, updatedAt: 1,
+    };
+    const { container } = render(
+      <App
+        controller={controller({ conversations: [empty], activeConversation: empty })}
+        healthLoader={async () => ({ status: 'ready', model: 'asi1-mini' })}
+      />,
+    );
+
+    expect(await screen.findByText('Start with a question')).toBeVisible();
+    expect(container.querySelector('.empty-state__glyph img[src="/brand/mark.png"]')).not.toBeNull();
+  });
+
   it('renders an ordered multi-turn thread and complete request telemetry', async () => {
     render(
       <App

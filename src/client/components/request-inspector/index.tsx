@@ -1,4 +1,5 @@
 import type { Conversation } from '@client/chat-domain';
+import { Icon } from '@components/icon';
 import { InspectorRow } from '@components/request-inspector/inspector-row';
 import type { RequestState } from '@hooks/use-chat-controller';
 
@@ -29,7 +30,7 @@ export const RequestInspector = ({
 
   return (
     <aside className="inspector" aria-label="Request inspector">
-      <header><span>Request inspector</span><span aria-hidden="true">•••</span></header>
+      <header><span>Request inspector</span><Icon name="ellipsis" /></header>
       <section>
         <h2>Transport</h2>
         <dl>

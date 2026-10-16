@@ -4,6 +4,7 @@ import {
 } from 'react';
 
 import type { RequestState } from '@hooks/use-chat-controller';
+import { Icon } from '@components/icon';
 import {
   CommandWhisperer,
   commandOptionId,
@@ -84,12 +85,13 @@ export const Composer = ({
         />
       </div>
       <button
-        className="composer__action"
+        className={`composer__action${requestState === 'streaming' ? ' composer__action--stop' : ''}`}
         disabled={requestState === 'idle' && (disabled || !draft.trim())}
         onClick={requestState === 'streaming' ? onStop : onSubmit}
         type="button"
         aria-label={requestState === 'streaming' ? 'Stop response' : 'Send message'}
       >
+        {requestState === 'streaming' ? <Icon name="square" size={14} /> : null}
         {requestState === 'streaming' ? 'Stop' : 'Send'}
       </button>
       {disabledReason ? (

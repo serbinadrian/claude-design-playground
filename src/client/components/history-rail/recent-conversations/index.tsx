@@ -1,4 +1,5 @@
 import type { Conversation } from '@client/chat-domain';
+import { Icon } from '@components/icon';
 
 interface RecentConversationsProps {
   activeId: string;
@@ -39,7 +40,7 @@ export const RecentConversations = ({
           onClick={() => onDelete(conversation.id)}
           type="button"
         >
-          ×
+          <Icon name="x" size={14} />
         </button>
       </div>
     );
